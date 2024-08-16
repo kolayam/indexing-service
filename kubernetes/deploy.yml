@@ -22,6 +22,8 @@ spec:
             - containerPort: 8080
               protocol: TCP
           env:
+            - name: PORT
+              value: '8080'
             - name: LOGSTASH_URI
               value: logstash-service:5044
             - name: INDEXING_SERVICE_URL
