@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: indexing-service
+  namespace: nimble-platform
+  labels:
+    app: nimble-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: indexing-service
+  template:
+    metadata:
+      labels:
+        app: indexing-service
+    spec:
+      containers:
+        - name: indexing-service
+          image: 'rannybal2024/indexing-service:IMAGE_TAG'
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          env:
+            - name: LOGSTASH_URI
+              value: logstash-service:5044
+            - name: INDEXING_SERVICE_URL
+              value: http://indexing-service:8080
+            - name: _JAVA_OPTIONS
+              value: "-Xmx256m -Xms50m"
+            - name: SOLR_HOST
+              value: "http://solr:8983/solr"
+            - name: SPRING_PROFILES_ACTIVE
+              value: "docker"
+            - name: CONFIG_SERVER_URI
+              value: "http://config-server:8888"
+            - name: CONFIG_SERVER_FAILFAST
+              value: "true"
+            - name: DISCOVERY_ENABLED
+              value: "true"
+            - name: DISCOVERY_SERVER_URI
+              value: "http://service-discovery:8761"
+            - name: DISCOVERY_PREFER_IP
+              value: "false"
+            - name: KEYCLOAK_PUBLIC_KEY
+              value: "-----BEGIN PUBLIC KEY-----MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjbTzPIh+ff5lTVW0c4veuS3Ers+29+h9mXXcwkojaDRwzHmf1ZCVvJY3eNy6NCu0SwVksA2tusBZK+qiSo4Kk24DDTNz1JQ7HDvXzTxH6Vfz8vPC9qq+kOPBqUOXctlNTiyz+8uEA6rS1ZpzcbVOdds0xx9k0pSlZhXxbeJlq+m8nS5cWNiAMnS4Z0UQDJXNL5Y8a4z8XTPlX5cv9B2cikQpQ97grnUQ1ihAs+7gw6Jo1DyU+6V1KEYK89yPtn8bSvsgVSIx0g97kBS7c2EhmqBgQ5h5zXW7nLXTiNE+va7Gk0Bfaf6jw5j8p5/uigrRlmgoTQxvgE7oiviJA18ZTQIDAQAB-----END PUBLIC KEY-----"
+          resources:
+            limits:
+              memory: 2000Mi
+            requests:
+              cpu: 200m
+              memory: 256Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          imagePullPolicy: Always
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+      securityContext: { }
+      schedulerName: default-scheduler
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
