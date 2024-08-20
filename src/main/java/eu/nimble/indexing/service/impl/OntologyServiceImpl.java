@@ -13,6 +13,8 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.jena.ontology.OntClass;
 import org.apache.jena.ontology.OntModel;
 import org.apache.jena.ontology.OntModelSpec;
@@ -124,7 +126,12 @@ public class OntologyServiceImpl implements OntologyService {
 				if (nameSpaces.isEmpty() || nameSpaces.contains(p.getNameSpace())) {
 					if ( !p.isOntLanguageTerm()) {
 						PropertyType prop = processProperty(ontModel, p);
-						if ( prop != null) {
+                        try {
+                            System.out.println("=============" + new ObjectMapper().writeValueAsString(prop));
+                        } catch (JsonProcessingException e) {
+                            throw new RuntimeException(e);
+                        }
+                        if ( prop != null) {
 							propRepo.save(prop);
 							indexedProp.add(prop);
 						}
