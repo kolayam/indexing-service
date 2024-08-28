@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 import eu.nimble.indexing.service.IdentityService;
+import eu.nimble.indexing.service.impl.ImportOwlThread;
 import eu.nimble.indexing.utils.SearchEvent;
 import eu.nimble.utility.LoggerUtils;
 import io.swagger.annotations.Api;
@@ -61,6 +62,35 @@ public class OntologyController {
 		onto.upload(mimeType, nameSpace, content);
     	return ResponseEntity.ok(null);
     }
+
+	@ApiOperation(value="", notes = "Upload an ontology to the index")
+	@ApiResponses(value = {
+			@ApiResponse(code = 200, message = "Ontology successfully indexed"),
+			@ApiResponse(code = 400, message = "Error while ontology indexing")})
+	@PostMapping("/ontology-thread")
+	public ResponseEntity<?> uploadOntologyThread(
+			@RequestHeader(value = "Authorization") String bearerToken,
+			@RequestHeader(value = "Content-Type", required=false) String mimeType,
+			@RequestParam(name="nameSpace") List<String> nameSpace,
+			@RequestBody String content) throws Exception {
+
+		if (identityService.hasAnyRole(bearerToken, PLATFORM_MANAGER) == false)
+			return new ResponseEntity<>("Only platform managers are allowed to update ontology",
+					HttpStatus.UNAUTHORIZED);
+
+		//mdc logging
+		Map<String,String> paramMap = new HashMap<String, String>();
+		paramMap.put("activity", SearchEvent.INDEX_ONTOLOGY.getActivity());
+		LoggerUtils.logWithMDC(logger, paramMap, LoggerUtils.LogLevel.INFO, "Indexing an ontology with mime-type: {}", mimeType);
+		// nameSpace must not be null
+		if ( nameSpace == null) {
+			nameSpace = new ArrayList<String>();
+		}
+//		onto.upload(mimeType, nameSpace, content);
+		ImportOwlThread ontoThread = new ImportOwlThread(onto,mimeType, nameSpace, content);
+		ontoThread.run();
+		return ResponseEntity.ok(null);
+	}
 
 
 	@ApiOperation(value="", notes= "Delete an ontology to the index")
