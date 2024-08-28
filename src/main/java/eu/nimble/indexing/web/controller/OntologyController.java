@@ -88,7 +88,7 @@ public class OntologyController {
 		}
 //		onto.upload(mimeType, nameSpace, content);
 		ImportOwlThread ontoThread = new ImportOwlThread(onto,mimeType, nameSpace, content);
-		ontoThread.run();
+		ontoThread.start();
 		return ResponseEntity.ok(null);
 	}
 

@@ -4,7 +4,7 @@ import eu.nimble.indexing.service.OntologyService;
 
 import java.util.List;
 
-public class ImportOwlThread implements Runnable {
+public class ImportOwlThread extends Thread {
     private OntologyService onto;
     private String mimeType;
     private List<String> nameSpaces;
