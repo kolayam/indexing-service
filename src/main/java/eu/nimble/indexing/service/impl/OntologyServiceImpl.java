@@ -1,6 +1,7 @@
 package eu.nimble.indexing.service.impl;
 
-import java.io.StringReader;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -29,8 +30,11 @@ import org.apache.jena.rdf.model.RDFNode;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.rdf.model.Statement;
 import org.apache.jena.riot.Lang;
+import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.riot.RDFParser;
 import org.apache.jena.riot.system.ErrorHandlerFactory;
+import org.apache.jena.riot.system.StreamRDF;
+import org.apache.jena.riot.system.StreamRDFBase;
 import org.apache.jena.util.iterator.ExtendedIterator;
 import org.apache.jena.vocabulary.DC;
 import org.apache.jena.vocabulary.RDFS;
@@ -80,7 +84,8 @@ public class OntologyServiceImpl implements OntologyService {
 	}
 	@Override
 	public void upload(String mimeType, List<String> nameSpaces, String onto) {
-	
+		InputStream inputStream = new ByteArrayInputStream(onto.getBytes(StandardCharsets.UTF_8));;
+
 		Lang l = Lang.RDFNULL;
 		switch (mimeType) {
 		case "application/rdf+xml":
@@ -97,18 +102,24 @@ public class OntologyServiceImpl implements OntologyService {
 		 * Create a Model with RDFS inferencing
 		 */
 		OntModel ontModel = ModelFactory.createOntologyModel(OntModelSpec.OWL_MEM_RDFS_INF);
+
 		try {
+
 			//
-			StringReader reader = new StringReader(onto);
+//			StringReader reader = new StringReader(onto);
+
+
+			RDFDataMgr.read(ontModel, inputStream, l);
+
 			/*
 			 * Read the input string into the Ontology Model
 			 */
-			RDFParser.create()
-				.source(reader)
-				.errorHandler(ErrorHandlerFactory.errorHandlerStrict)
-				.lang(l)
-				.base("http://www.nimble-project.eu/onto/")
-				.parse(ontModel);
+//			RDFParser.create()
+//				.source(reader)
+//				.errorHandler(ErrorHandlerFactory.errorHandlerStrict)
+//				.lang(l)
+//				.base("http://www.nimble-project.eu/onto/")
+//				.parse(ontModel);
 			
 			/*
 			 * Keep a list of indexed properties, use this list for
@@ -158,7 +169,12 @@ public class OntologyServiceImpl implements OntologyService {
 			}
 		} finally {
 			ontModel.close();
-		}
+            try {
+                inputStream.close();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
 
 	}
 	/**
