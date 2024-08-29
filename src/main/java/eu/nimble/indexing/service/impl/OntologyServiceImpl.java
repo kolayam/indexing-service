@@ -2,6 +2,9 @@ package eu.nimble.indexing.service.impl;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -22,6 +25,7 @@ import org.apache.jena.ontology.OntModelSpec;
 import org.apache.jena.ontology.OntProperty;
 import org.apache.jena.ontology.OntResource;
 import org.apache.jena.ontology.UnionClass;
+import org.apache.jena.query.Dataset;
 import org.apache.jena.rdf.model.ModelFactory;
 import org.apache.jena.rdf.model.NodeIterator;
 import org.apache.jena.rdf.model.Property;
@@ -35,6 +39,7 @@ import org.apache.jena.riot.RDFParser;
 import org.apache.jena.riot.system.ErrorHandlerFactory;
 import org.apache.jena.riot.system.StreamRDF;
 import org.apache.jena.riot.system.StreamRDFBase;
+import org.apache.jena.tdb.TDBFactory;
 import org.apache.jena.util.iterator.ExtendedIterator;
 import org.apache.jena.vocabulary.DC;
 import org.apache.jena.vocabulary.RDFS;
@@ -84,6 +89,16 @@ public class OntologyServiceImpl implements OntologyService {
 	}
 	@Override
 	public void upload(String mimeType, List<String> nameSpaces, String onto) {
+
+		String data = "This is the content to write into the file.";
+		Path path = Paths.get("output.txt");
+
+		try {
+			Files.write(path, onto.getBytes(StandardCharsets.UTF_8));
+			System.out.println("Successfully written to the file.");
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 		InputStream inputStream = new ByteArrayInputStream(onto.getBytes(StandardCharsets.UTF_8));;
 
 		Lang l = Lang.RDFNULL;
@@ -101,7 +116,11 @@ public class OntologyServiceImpl implements OntologyService {
 		/*
 		 * Create a Model with RDFS inferencing
 		 */
-		OntModel ontModel = ModelFactory.createOntologyModel(OntModelSpec.OWL_MEM_RDFS_INF);
+//		OntModel ontModel = ModelFactory.createOntologyModel(OntModelSpec.OWL_MEM_RDFS_INF);
+
+		String directory = ".";
+		Dataset dataset = TDBFactory.createDataset(directory);
+		OntModel ontModel = ModelFactory.createOntologyModel(OntModelSpec.OWL_MEM, dataset.getDefaultModel());
 
 		try {
 
@@ -109,7 +128,12 @@ public class OntologyServiceImpl implements OntologyService {
 //			StringReader reader = new StringReader(onto);
 
 
-			RDFDataMgr.read(ontModel, inputStream, l);
+
+			// Access the OntModel from the dataset
+
+			// Load the OWL file as before
+			ontModel.read(inputStream, null, "RDF/XML");
+
 
 			/*
 			 * Read the input string into the Ontology Model
