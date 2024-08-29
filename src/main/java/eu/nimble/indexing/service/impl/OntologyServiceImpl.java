@@ -158,18 +158,19 @@ public class OntologyServiceImpl implements OntologyService {
 			while ( properties.hasNext()) {
 				OntProperty p = properties.next();
 				// restrict import to namespace list provided
-				if (nameSpaces.isEmpty() || nameSpaces.contains(p.getNameSpace())) {
-					if ( !p.isOntLanguageTerm()) {
-						PropertyType prop = processProperty(ontModel, p);
-                        try {
-                            System.out.println("=============" + new ObjectMapper().writeValueAsString(prop));
-                        } catch (JsonProcessingException e) {
-                            throw new RuntimeException(e);
-                        }
-                        if ( prop != null) {
-							propRepo.save(prop);
-							indexedProp.add(prop);
-						}
+//				if (nameSpaces.isEmpty() || nameSpaces.contains(p.getNameSpace())) {
+//
+//				}
+				if ( !p.isOntLanguageTerm()) {
+					PropertyType prop = processProperty(ontModel, p);
+					try {
+						System.out.println("=============" + new ObjectMapper().writeValueAsString(prop));
+					} catch (JsonProcessingException e) {
+						throw new RuntimeException(e);
+					}
+					if ( prop != null) {
+						propRepo.save(prop);
+						indexedProp.add(prop);
 					}
 				}
 			}
@@ -181,13 +182,15 @@ public class OntologyServiceImpl implements OntologyService {
 			while ( classes.hasNext()) {
 				OntClass c = classes.next();
 				// restrict import to namespace list provided
-				if ( nameSpaces.isEmpty() || nameSpaces.contains(c.getNameSpace())) {
-					
-					if ( !c.isOntLanguageTerm()) {
-						ClassType clazz = processClazz(ontModel, c, indexedProp);
-						if ( clazz != null) {
-							classRepository.save(clazz);
-						}
+//				if ( nameSpaces.isEmpty() || nameSpaces.contains(c.getNameSpace())) {
+//
+//
+//				}
+
+				if ( !c.isOntLanguageTerm()) {
+					ClassType clazz = processClazz(ontModel, c, indexedProp);
+					if ( clazz != null) {
+						classRepository.save(clazz);
 					}
 				}
 			}
