@@ -171,6 +171,7 @@ public class OntologyServiceImpl implements OntologyService {
 					}
 				}
 			}
+//			propRepo.saveAll(indexedProp);
 			/*
 			 * process all ontology classes, index them and map all
 			 * properties applicable to the class 

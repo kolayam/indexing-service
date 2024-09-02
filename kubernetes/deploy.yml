@@ -39,7 +39,7 @@ spec:
             - name: CONFIG_SERVER_FAILFAST
               value: "true"
             - name: DISCOVERY_ENABLED
-              value: "true"
+              value: "false"
             - name: DISCOVERY_SERVER_URI
               value: "http://service-discovery:8761"
             - name: DISCOVERY_PREFER_IP
