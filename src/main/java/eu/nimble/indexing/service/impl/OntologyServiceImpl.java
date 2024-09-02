@@ -116,11 +116,11 @@ public class OntologyServiceImpl implements OntologyService {
 		/*
 		 * Create a Model with RDFS inferencing
 		 */
-//		OntModel ontModel = ModelFactory.createOntologyModel(OntModelSpec.OWL_MEM_RDFS_INF);
+		OntModel ontModel = ModelFactory.createOntologyModel(OntModelSpec.OWL_MEM_RDFS_INF);
 
 		String directory = ".";
 		Dataset dataset = TDBFactory.createDataset(directory);
-		OntModel ontModel = ModelFactory.createOntologyModel(OntModelSpec.OWL_MEM, dataset.getDefaultModel());
+//		OntModel ontModel = ModelFactory.createOntologyModel(OntModelSpec.OWL_MEM, dataset.getDefaultModel());
 		System.out.println("==========2");
 		try {
 
@@ -132,18 +132,18 @@ public class OntologyServiceImpl implements OntologyService {
 			// Access the OntModel from the dataset
 
 			// Load the OWL file as before
-			ontModel.read(inputStream, null, "RDF/XML");
+//			ontModel.read(inputStream, null, "RDF/XML");
 			System.out.println("==========3");
 
 			/*
 			 * Read the input string into the Ontology Model
 			 */
-//			RDFParser.create()
-//				.source(reader)
-//				.errorHandler(ErrorHandlerFactory.errorHandlerStrict)
-//				.lang(l)
-//				.base("http://www.nimble-project.eu/onto/")
-//				.parse(ontModel);
+			RDFParser.create()
+				.source(inputStream)
+				.errorHandler(ErrorHandlerFactory.errorHandlerStrict)
+				.lang(l)
+				.base("http://www.nimble-project.eu/onto/")
+				.parse(ontModel);
 			
 			/*
 			 * Keep a list of indexed properties, use this list for
