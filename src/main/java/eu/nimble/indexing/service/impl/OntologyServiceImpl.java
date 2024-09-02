@@ -163,11 +163,8 @@ public class OntologyServiceImpl implements OntologyService {
 //				}
 				if ( !p.isOntLanguageTerm()) {
 					PropertyType prop = processProperty(ontModel, p);
-					try {
-						System.out.println("=============" + new ObjectMapper().writeValueAsString(prop));
-					} catch (JsonProcessingException e) {
-						throw new RuntimeException(e);
-					}
+					System.out.println("=============" + prop.getUri());
+
 					if ( prop != null) {
 						propRepo.save(prop);
 						indexedProp.add(prop);

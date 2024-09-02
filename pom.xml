@@ -12,7 +12,7 @@
     <groupId>eu.nimble.services</groupId>
     <artifactId>indexing-service</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>indexing-service2</name>
+    <name>indexing-service</name>
     <description>Nimble SOLR Indexing</description>
 
     <properties>
