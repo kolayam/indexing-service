@@ -166,12 +166,12 @@ public class OntologyServiceImpl implements OntologyService {
 					System.out.println("=============" + prop.getUri());
 
 					if ( prop != null) {
-//						propRepo.save(prop);
+						propRepo.save(prop);
 						indexedProp.add(prop);
 					}
 				}
 			}
-			propRepo.saveAll(indexedProp);
+//			propRepo.saveAll(indexedProp);
 			/*
 			 * process all ontology classes, index them and map all
 			 * properties applicable to the class 
@@ -192,7 +192,10 @@ public class OntologyServiceImpl implements OntologyService {
 					}
 				}
 			}
-		} finally {
+		}catch (Exception e){
+			e.printStackTrace();
+		}
+		finally {
 			ontModel.close();
             try {
                 inputStream.close();
