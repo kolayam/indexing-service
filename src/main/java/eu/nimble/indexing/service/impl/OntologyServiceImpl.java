@@ -140,7 +140,7 @@ public class OntologyServiceImpl implements OntologyService {
 			 */
 			RDFParser.create()
 				.source(inputStream)
-				.errorHandler(ErrorHandlerFactory.errorHandlerStrict)
+				.errorHandler(ErrorHandlerFactory.errorHandlerNoWarnings)
 				.lang(l)
 				.base("http://www.nimble-project.eu/onto/")
 				.parse(ontModel);
