@@ -116,11 +116,11 @@ public class OntologyServiceImpl implements OntologyService {
 		/*
 		 * Create a Model with RDFS inferencing
 		 */
-		OntModel ontModel = ModelFactory.createOntologyModel(OntModelSpec.OWL_MEM_RDFS_INF);
+//		OntModel ontModel = ModelFactory.createOntologyModel(OntModelSpec.OWL_MEM_RDFS_INF);
 
 		String directory = ".";
 		Dataset dataset = TDBFactory.createDataset(directory);
-//		OntModel ontModel = ModelFactory.createOntologyModel(OntModelSpec.OWL_MEM, dataset.getDefaultModel());
+		OntModel ontModel = ModelFactory.createOntologyModel(OntModelSpec.OWL_MEM, dataset.getDefaultModel());
 		System.out.println("==========2");
 		try {
 
