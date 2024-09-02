@@ -100,7 +100,7 @@ public class OntologyServiceImpl implements OntologyService {
 			e.printStackTrace();
 		}
 		InputStream inputStream = new ByteArrayInputStream(onto.getBytes(StandardCharsets.UTF_8));;
-
+		System.out.println("==========1");
 		Lang l = Lang.RDFNULL;
 		switch (mimeType) {
 		case "application/rdf+xml":
@@ -121,7 +121,7 @@ public class OntologyServiceImpl implements OntologyService {
 		String directory = ".";
 		Dataset dataset = TDBFactory.createDataset(directory);
 		OntModel ontModel = ModelFactory.createOntologyModel(OntModelSpec.OWL_MEM, dataset.getDefaultModel());
-
+		System.out.println("==========2");
 		try {
 
 			//
@@ -133,7 +133,7 @@ public class OntologyServiceImpl implements OntologyService {
 
 			// Load the OWL file as before
 			ontModel.read(inputStream, null, "RDF/XML");
-
+			System.out.println("==========3");
 
 			/*
 			 * Read the input string into the Ontology Model
