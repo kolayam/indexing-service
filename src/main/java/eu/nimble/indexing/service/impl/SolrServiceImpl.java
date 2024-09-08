@@ -228,7 +228,7 @@ public abstract class SolrServiceImpl<T> implements SolrService<T> {
 			facetOptions.setFacetLimit(facetLimit);
 			fq.setFacetOptions(facetOptions);
 		}
-
+		System.out.println(String.join("--","getCollection()",getCollection(),"fq",fq.toString(),"getSolrClass()",getSolrClass().getCanonicalName()));
 		FacetPage<T> result = solrTemplate.queryForFacetPage(getCollection(),fq, getSolrClass(), RequestMethod.POST);
 
 
