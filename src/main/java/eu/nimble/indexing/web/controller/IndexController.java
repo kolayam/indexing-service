@@ -1,11 +1,13 @@
 package eu.nimble.indexing.web.controller;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import eu.nimble.indexing.dto.SimpleItem;
 import eu.nimble.indexing.dto.SimpleSearchResponse;
 import eu.nimble.indexing.service.IdentityService;
 import eu.nimble.indexing.utils.SearchEvent;
+import eu.nimble.service.model.solr.owl.Concept;
 import eu.nimble.service.model.ubl.extension.QualityIndicatorParameter;
 import eu.nimble.utility.LoggerUtils;
 import io.swagger.annotations.*;
@@ -607,7 +609,7 @@ public class IndexController {
 		if (classType != null && !classType.isEmpty()) {
 			System.out.println("classType:===="+classType);
 			SearchResult<PropertyType> prop = propertyService.findForClasses(classType);
-			System.out.println("properteis:=======" + prop.getResult().stream().map(m->m.getUri()));
+			System.out.println("properteis:=======" + prop.getResult().stream().map(Concept::getUri).collect(Collectors.toList()));
 			return ResponseEntity.ok(prop);
 		}
 		if (idxNames != null) {
