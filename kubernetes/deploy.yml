@@ -29,7 +29,7 @@ spec:
             - name: INDEXING_SERVICE_URL
               value: http://indexing-service:8080
             - name: _JAVA_OPTIONS
-              value: "-Xms512m -Xmx512m"
+              value: "-Xms512m -Xmx1g"
             - name: SOLR_HOST
               value: "http://solr:8983/solr"
             - name: SPRING_PROFILES_ACTIVE
@@ -51,8 +51,8 @@ spec:
           imagePullPolicy: Always
           resources:
             requests:
-              memory: "512Mi"  # The minimum amount of memory requested
-              cpu: "250m"      # Optional: The minimum amount of CPU requested
+              memory: "1Gi"  # The minimum amount of memory requested
+              cpu: "500m"      # Optional: The minimum amount of CPU requested
             limits:
-              memory: "1Gi"    # The maximum amount of memory allowed
-              cpu: "500m"      # Optional: The maximum amount of CPU allowed
+              memory: "2Gi"    # The maximum amount of memory allowed
+              cpu: "1000m"      # Optional: The maximum amount of CPU allowed
