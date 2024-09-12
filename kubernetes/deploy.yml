@@ -49,15 +49,10 @@ spec:
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           imagePullPolicy: Always
-      restartPolicy: Always
-      terminationGracePeriodSeconds: 30
-      dnsPolicy: ClusterFirst
-      securityContext: { }
-      schedulerName: default-scheduler
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 25%
-      maxSurge: 25%
-  revisionHistoryLimit: 10
-  progressDeadlineSeconds: 600
+          resources:
+            requests:
+              memory: "512Mi"  # The minimum amount of memory requested
+              cpu: "250m"      # Optional: The minimum amount of CPU requested
+            limits:
+              memory: "1Gi"    # The maximum amount of memory allowed
+              cpu: "500m"      # Optional: The maximum amount of CPU allowed
