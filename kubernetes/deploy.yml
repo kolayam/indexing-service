@@ -57,13 +57,9 @@ spec:
               memory: "2Gi"    # The maximum amount of memory allowed
               cpu: "1000m"      # Optional: The maximum amount of CPU allowed
           volumeMounts:
-            - name: solr-var-data-pv
+            - name: indexing-vl
               mountPath: /var/data/
-  volumeClaimTemplates:
-    - metadata:
-        name: index-data-pv
-      spec:
-        accessModes: [ "ReadWriteOnce" ]
-        resources:
-          requests:
-            storage: 10Gi
+      volumes:
+        - name: indexing-vl
+          persistentVolumeClaim:
+            claimName: indexing-pvc
