@@ -58,7 +58,7 @@ spec:
               cpu: "1000m"      # Optional: The maximum amount of CPU allowed
           volumeMounts:
             - name: indexing-vl
-              mountPath: /var/data/
+              mountPath: /var/tmp/
       volumes:
         - name: indexing-vl
           persistentVolumeClaim:

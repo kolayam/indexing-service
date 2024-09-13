@@ -135,6 +135,27 @@ public class OntologyServiceImpl implements OntologyService {
              * mapping with classes
              */
             List<PropertyType> indexedProp = new ArrayList<>();
+
+//			propRepo.saveAll(indexedProp);
+            /*
+             * process all ontology classes, index them and map all
+             * properties applicable to the class
+             */
+            Iterator<OntClass> classes = ontModel.listClasses();
+            while (classes.hasNext()) {
+                OntClass c = classes.next();
+                // restrict import to namespace list provided
+                if (nameSpaces.isEmpty() || nameSpaces.contains(c.getNameSpace())) {
+
+                    if (!c.isOntLanguageTerm()) {
+                        ClassType clazz = processClazz(ontModel, c, indexedProp);
+                        if (clazz != null) {
+                            classRepository.save(clazz);
+                        }
+                    }
+                }
+            }
+
             /*
              * Process all ontology properties, index them and fill
              * the list of indexedProp
@@ -156,27 +177,7 @@ public class OntologyServiceImpl implements OntologyService {
                 }
 
             }
-//			propRepo.saveAll(indexedProp);
-            /*
-             * process all ontology classes, index them and map all
-             * properties applicable to the class
-             */
-            Iterator<OntClass> classes = ontModel.listClasses();
-            while (classes.hasNext()) {
-                OntClass c = classes.next();
-                // restrict import to namespace list provided
-                if (nameSpaces.isEmpty() || nameSpaces.contains(c.getNameSpace())) {
 
-                    if (!c.isOntLanguageTerm()) {
-                        ClassType clazz = processClazz(ontModel, c, indexedProp);
-                        if (clazz != null) {
-                            classRepository.save(clazz);
-                        }
-                    }
-                }
-
-
-            }
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
