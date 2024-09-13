@@ -142,7 +142,9 @@ public class OntologyServiceImpl implements OntologyService {
              * properties applicable to the class
              */
             Iterator<OntClass> classes = ontModel.listClasses();
+            long i = 0;
             while (classes.hasNext()) {
+                System.out.println("----"+ (i++));
                 OntClass c = classes.next();
                 // restrict import to namespace list provided
                 if (nameSpaces.isEmpty() || nameSpaces.contains(c.getNameSpace())) {
@@ -160,8 +162,10 @@ public class OntologyServiceImpl implements OntologyService {
              * Process all ontology properties, index them and fill
              * the list of indexedProp
              */
+            i=0;
             Iterator<OntProperty> properties = ontModel.listAllOntProperties();
             while (properties.hasNext()) {
+                System.out.println("====="+ (i++));
                 OntProperty p = properties.next();
                 // restrict import to namespace list provided
                 if (nameSpaces.isEmpty() || nameSpaces.contains(p.getNameSpace())) {
