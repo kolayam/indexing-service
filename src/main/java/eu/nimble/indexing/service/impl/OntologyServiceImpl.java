@@ -149,11 +149,12 @@ public class OntologyServiceImpl implements OntologyService {
                 // restrict import to namespace list provided
                 if (nameSpaces.isEmpty() || nameSpaces.contains(c.getNameSpace())) {
 
-                    if (!c.isOntLanguageTerm()) {
-                        ClassType clazz = processClazz(ontModel, c, indexedProp);
-                        if (clazz != null) {
-                            classRepository.save(clazz);
-                        }
+
+                }
+                if (!c.isOntLanguageTerm()) {
+                    ClassType clazz = processClazz(ontModel, c, indexedProp);
+                    if (clazz != null) {
+                        classRepository.save(clazz);
                     }
                 }
             }
@@ -169,14 +170,15 @@ public class OntologyServiceImpl implements OntologyService {
                 OntProperty p = properties.next();
                 // restrict import to namespace list provided
                 if (nameSpaces.isEmpty() || nameSpaces.contains(p.getNameSpace())) {
-                    if (!p.isOntLanguageTerm()) {
-                        PropertyType prop = processProperty(ontModel, p);
-                        if (prop != null) {
-                            propRepo.save(prop);
+
+                }
+                if (!p.isOntLanguageTerm()) {
+                    PropertyType prop = processProperty(ontModel, p);
+                    if (prop != null) {
+                        propRepo.save(prop);
 //                            indexedProp.add(prop);
 //                            List<PropertyK> propertyKS = prop.getProduct().stream().map(m->new PropertyK(m,prop.getUri())).collect(Collectors.toList());
 //                            this.propertyRepositoryK.saveAll(propertyKS);
-                        }
                     }
                 }
 
