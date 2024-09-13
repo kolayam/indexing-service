@@ -23,12 +23,6 @@ public class PropertyK {
         this.url = url;
     }
 
-    public PropertyK(String id, String product, String url) {
-        this.id = id;
-        this.product = product;
-        this.url = url;
-    }
-
     public PropertyK() {
     }
 
