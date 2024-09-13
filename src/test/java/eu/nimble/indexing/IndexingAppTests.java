@@ -32,7 +32,7 @@ public class IndexingAppTests {
 			String content = new String(fileBytes);
 			this.service.upload("application/rdf+xml", Collections.singletonList("http://www.ebusiness-unibw.org/ontologies/eclass/5.1.4/#"), content);
 
-			System.out.println(content);
+//			System.out.println(content);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
