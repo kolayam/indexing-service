@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: indexing-service
-          image: 'rannybal2024/indexing-service:IMAGE_TAG'
+          image: 'nimbleplatform/indexing-service:staging'
           ports:
             - containerPort: 8080
               protocol: TCP
