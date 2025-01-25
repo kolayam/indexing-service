@@ -1,10 +1,11 @@
 package eu.nimble.indexing.service.impl;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FilenameFilter;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -17,10 +18,6 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import eu.nimble.indexing.web.controller.PropertyK;
-import eu.nimble.indexing.web.controller.PropertyRepositoryK;
 import org.apache.jena.ontology.OntClass;
 import org.apache.jena.ontology.OntModel;
 import org.apache.jena.ontology.OntModelSpec;
@@ -36,11 +33,8 @@ import org.apache.jena.rdf.model.RDFNode;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.rdf.model.Statement;
 import org.apache.jena.riot.Lang;
-import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.riot.RDFParser;
 import org.apache.jena.riot.system.ErrorHandlerFactory;
-import org.apache.jena.riot.system.StreamRDF;
-import org.apache.jena.riot.system.StreamRDFBase;
 import org.apache.jena.tdb.TDBFactory;
 import org.apache.jena.util.iterator.ExtendedIterator;
 import org.apache.jena.vocabulary.DC;
@@ -52,11 +46,16 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.google.common.collect.Iterators;
+
 import eu.nimble.indexing.repository.ClassRepository;
 import eu.nimble.indexing.repository.CodedRepository;
 import eu.nimble.indexing.repository.PropertyRepository;
 import eu.nimble.indexing.service.OntologyService;
+import eu.nimble.indexing.service.PropertyService;
 import eu.nimble.indexing.service.impl.owl.NIMBLEOntology;
+import eu.nimble.indexing.web.controller.PropertyK;
+import eu.nimble.indexing.web.controller.PropertyRepositoryK;
 import eu.nimble.service.model.solr.item.ItemType;
 import eu.nimble.service.model.solr.owl.ClassType;
 import eu.nimble.service.model.solr.owl.CodedType;
@@ -86,6 +85,15 @@ public class OntologyServiceImpl implements OntologyService {
     @Autowired
     private PropertyRepositoryK propertyRepositoryK;
 
+
+    @Autowired
+    private PropertyService propertyService;
+
+    private List<String> propertyList;
+
+    private Map<String, List<String>> classList;
+
+
     @Override
     public boolean deleteNamespace(String namespace) {
         propRepo.deleteByNameSpace(namespace);
@@ -96,6 +104,32 @@ public class OntologyServiceImpl implements OntologyService {
     @Override
     public void upload(String mimeType, List<String> nameSpaces, String onto) {
 
+        final File folder = new File("/home/sword/git/kola/indexing-service");;
+        final File[] files = folder.listFiles( new FilenameFilter() {
+            @Override
+            public boolean accept( final File dir,
+                                final String name ) {
+                return name.endsWith( ".dat" );
+            }
+        } );
+        for ( final File file : files ) {
+            if ( !file.delete() ) {
+                System.err.println( "Can't remove " + file.getAbsolutePath() );
+            }
+        }
+
+        final File[] files2 = folder.listFiles( new FilenameFilter() {
+            @Override
+            public boolean accept( final File dir,
+                                final String name ) {
+                return name.endsWith( ".idn" );
+            }
+        } );
+        for ( final File file : files2) {
+            if ( !file.delete() ) {
+                System.err.println( "Can't remove " + file.getAbsolutePath() );
+            }
+        }
 
         InputStream inputStream = new ByteArrayInputStream(onto.getBytes(StandardCharsets.UTF_8));
         ;
@@ -119,7 +153,7 @@ public class OntologyServiceImpl implements OntologyService {
         Dataset dataset = TDBFactory.createDataset(directory);
         OntModel ontModel = ModelFactory.createOntologyModel(OntModelSpec.OWL_MEM, dataset.getDefaultModel());
         try {
-
+            long i=0;
             /*
              * Read the input string into the Ontology Model
              */
@@ -141,47 +175,51 @@ public class OntologyServiceImpl implements OntologyService {
              * process all ontology classes, index them and map all
              * properties applicable to the class
              */
-            Iterator<OntClass> classes = ontModel.listClasses();
-            long i = 0;
-            while (classes.hasNext()) {
-                System.out.println("----"+ (i++));
-                OntClass c = classes.next();
-                // restrict import to namespace list provided
-                if (nameSpaces.isEmpty() || nameSpaces.contains(c.getNameSpace())) {
-
-
-                }
-                if (!c.isOntLanguageTerm()) {
-                    ClassType clazz = processClazz(ontModel, c, indexedProp);
-                    if (clazz != null) {
-                        classRepository.save(clazz);
-                    }
-                }
-            }
+  
 
             /*
              * Process all ontology properties, index them and fill
              * the list of indexedProp
              */
-            i=0;
+            // i=0;
+
+
             Iterator<OntProperty> properties = ontModel.listAllOntProperties();
+            i= Iterators.size(properties);
+            properties = ontModel.listAllOntProperties();
+            
             while (properties.hasNext()) {
-                System.out.println("====="+ (i++));
+                System.out.println("property" + (i--));
                 OntProperty p = properties.next();
                 // restrict import to namespace list provided
                 if (nameSpaces.isEmpty() || nameSpaces.contains(p.getNameSpace())) {
-
-                }
-                if (!p.isOntLanguageTerm()) {
-                    PropertyType prop = processProperty(ontModel, p);
-                    if (prop != null) {
-                        propRepo.save(prop);
-//                            indexedProp.add(prop);
-//                            List<PropertyK> propertyKS = prop.getProduct().stream().map(m->new PropertyK(m,prop.getUri())).collect(Collectors.toList());
-//                            this.propertyRepositoryK.saveAll(propertyKS);
+                    if (!p.isOntLanguageTerm()) {
+                        PropertyType prop = processProperty(ontModel, p);
+                        if (prop != null) {
+                            indexedProp.add(prop);
+                            propRepo.save(prop);
+                            // PropertyK propertyK = new PropertyK(String.join(",", prop.getProduct()), prop.getUri());
+                            // this.propertyRepositoryK.save(propertyK);
+                        }
                     }
                 }
+            }
 
+            Iterator<OntClass> classes = ontModel.listClasses();
+            i= Iterators.size(classes);
+            classes = ontModel.listClasses();
+            while (classes.hasNext()) {
+                System.out.println("class" + (i--));
+                OntClass c = classes.next();
+                // restrict import to namespace list provided
+                if (nameSpaces.isEmpty() || nameSpaces.contains(c.getNameSpace())) {
+                    if (!c.isOntLanguageTerm()) {
+                        ClassType clazz = processClazz(ontModel, c, indexedProp);
+                        if (clazz != null) {
+                            classRepository.save(clazz);
+                        }
+                    }
+                }
             }
 
         } catch (Exception e) {
@@ -244,8 +282,31 @@ public class OntologyServiceImpl implements OntologyService {
      * @return
      */
     private Set<String> getProperties(final OntClass clazz, List<PropertyType> properties) {
+        return properties.stream()
+        // filtering 
+        .filter(new Predicate<PropertyType>() {
+            @Override
+            public boolean test(PropertyType t) {
+                // filter - check whether the property is assigned to the current class
+                return t.getProduct().contains(clazz.getURI());
+            }
+        })
+        // conversion from property to string
+        .map(new Function<PropertyType, String>() {
 
-       return this.propertyRepositoryK.findByProduct(clazz.getURI()).stream().map(PropertyK::getUrl).collect(Collectors.toSet());
+            @Override
+            public String apply(PropertyType t) {
+                // map - extract the URI 
+                return t.getUri();
+            }
+        })
+        // collect the data
+        .collect(Collectors.toSet());
+    //    return this.propertyRepositoryK.findByClassIdContaining(this.classKs.stream().filter(f->f.getUrl().equals(clazz.getURI())).findFirst().get().getId()).stream().map(m->m.getUrl()).collect(Collectors.toSet());
+        // return this.propRepo.findByProduct(clazz.getURI()).stream().map(m->m.getUri()).collect(Collectors.toSet());
+        // return propertyRepositoryK.findByProductContaining(clazz.getURI()).stream().map(m->m.getUrl()).collect(Collectors.toSet());
+        // return propertyRepositoryK.findByProductContaining(clazz.getURI());
+
     }
 
     /**
@@ -321,8 +382,9 @@ public class OntologyServiceImpl implements OntologyService {
      */
     private PropertyType processProperty(OntModel model, OntProperty prop) {
         // find the existing property or create a new one
-        System.out.println("prop.getURI()" + prop.getURI());
-        PropertyType index = propRepo.findById(prop.getURI()).orElse(new PropertyType());
+        // PropertyType index = propRepo.findById(prop.getURI()).orElse(new PropertyType());
+        PropertyType index = new PropertyType();
+
         index.setUri(prop.getURI());
         //check if the property should be hidden from the UI
         index.setLocalName(prop.getLocalName());
