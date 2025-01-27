@@ -1,6 +1,12 @@
 package eu.nimble.indexing.service.impl;
 
+import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -12,6 +18,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.io.InputStream;
 
 import org.apache.jena.ontology.OntClass;
 import org.apache.jena.ontology.OntModel;
@@ -19,6 +26,15 @@ import org.apache.jena.ontology.OntModelSpec;
 import org.apache.jena.ontology.OntProperty;
 import org.apache.jena.ontology.OntResource;
 import org.apache.jena.ontology.UnionClass;
+import org.apache.jena.query.Dataset;
+import org.apache.jena.query.Query;
+import org.apache.jena.query.QueryExecution;
+import org.apache.jena.query.QueryExecutionFactory;
+import org.apache.jena.query.QueryFactory;
+import org.apache.jena.query.QuerySolution;
+import org.apache.jena.query.ReadWrite;
+import org.apache.jena.query.ResultSet;
+import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
 import org.apache.jena.rdf.model.NodeIterator;
 import org.apache.jena.rdf.model.Property;
@@ -26,9 +42,14 @@ import org.apache.jena.rdf.model.RDFList;
 import org.apache.jena.rdf.model.RDFNode;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.rdf.model.Statement;
+import org.apache.jena.rdf.model.StmtIterator;
 import org.apache.jena.riot.Lang;
+import org.apache.jena.riot.RDFDataMgr;
+import org.apache.jena.riot.RDFLanguages;
 import org.apache.jena.riot.RDFParser;
 import org.apache.jena.riot.system.ErrorHandlerFactory;
+import org.apache.jena.tdb.TDBFactory;
+import org.apache.jena.tdb2.TDB2Factory;
 import org.apache.jena.util.iterator.ExtendedIterator;
 import org.apache.jena.vocabulary.DC;
 import org.apache.jena.vocabulary.RDFS;
@@ -38,6 +59,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.Iterators;
 
 import eu.nimble.indexing.repository.ClassRepository;
 import eu.nimble.indexing.repository.CodedRepository;
@@ -50,6 +75,7 @@ import eu.nimble.service.model.solr.owl.CodedType;
 import eu.nimble.service.model.solr.owl.Concept;
 import eu.nimble.service.model.solr.owl.PropertyType;
 import eu.nimble.service.model.solr.owl.ValueQualifier;
+
 /**
  * Implementation for the Ontology Service
  * 
@@ -62,13 +88,22 @@ import eu.nimble.service.model.solr.owl.ValueQualifier;
 public class OntologyServiceImpl implements OntologyService {
 
 	private static final Logger logger = LoggerFactory.getLogger(OntologyServiceImpl.class);
-	
+
 	@Autowired
 	private PropertyRepository propRepo;
-	@Autowired 
+	@Autowired
 	private ClassRepository classRepository;
 	@Autowired
 	private CodedRepository codedRepository;
+
+	private static void deleteFolder(File folder) {
+		if (folder.isDirectory()) {
+			for (File file : folder.listFiles()) {
+				deleteFolder(file);
+			}
+		}
+		folder.delete();
+	}
 
 	@Override
 	public boolean deleteNamespace(String namespace) {
@@ -76,9 +111,10 @@ public class OntologyServiceImpl implements OntologyService {
 		classRepository.deleteByNameSpace(namespace);
 		return true;
 	}
+
 	@Override
 	public void upload(String mimeType, List<String> nameSpaces, String onto) {
-	
+
 		Lang l = Lang.RDFNULL;
 		switch (mimeType) {
 		case "application/rdf+xml":
@@ -88,62 +124,73 @@ public class OntologyServiceImpl implements OntologyService {
 			l = Lang.TURTLE;
 			break;
 		default:
-		    // 
+			//
 			return;
 		}
 		/*
 		 * Create a Model with RDFS inferencing
 		 */
-		OntModel ontModel = ModelFactory.createOntologyModel(OntModelSpec.OWL_MEM_RDFS_INF);
+		// OntModel ontModel =
+		// ModelFactory.createOntologyModel(OntModelSpec.OWL_MEM_RDFS_INF);
+
+//		 // Define the TDB directory
+       String tdbDirectory = "tdb-database";
+//		String owlFilePath = "./output.owl";
+       File tdbDir = new File(tdbDirectory);
+       if (tdbDir.exists()) {
+           deleteFolder(tdbDir); // Custom method to recursively delete directory
+       }
+	   Dataset dataset = TDB2Factory.connectDataset(tdbDirectory);
+	   dataset.begin();
+	   OntModel ontModel = ModelFactory.createOntologyModel(OntModelSpec.OWL_MEM_RDFS_INF, dataset.getDefaultModel());
+	
+
 		try {
-			//
-			StringReader reader = new StringReader(onto);
+			InputStream inputStream = new ByteArrayInputStream(onto.getBytes(StandardCharsets.UTF_8));
+			RDFDataMgr.read(ontModel, inputStream,"http://www.nimble-project.eu/onto/", l);
+
 			/*
-			 * Read the input string into the Ontology Model
-			 */
-			RDFParser.create()
-				.source(reader)
-				.errorHandler(ErrorHandlerFactory.errorHandlerStrict)
-				.lang(l)
-				.base("http://www.nimble-project.eu/onto/")
-				.parse(ontModel);
-			
-			/*
-			 * Keep a list of indexed properties, use this list for
-			 * mapping with classes 
+			 * Keep a list of indexed properties, use this list for mapping with classes
 			 */
 			List<PropertyType> indexedProp = new ArrayList<>();
 			/*
-			 * Process all ontology properties, index them and fill
-			 * the list of indexedProp
+			 * Process all ontology properties, index them and fill the list of indexedProp
 			 */
+			int i = 0;
 			Iterator<OntProperty> properties = ontModel.listAllOntProperties();
-			while ( properties.hasNext()) {
+			i = Iterators.size(properties);
+			properties = ontModel.listAllOntProperties();
+			while (properties.hasNext()) {
 				OntProperty p = properties.next();
+				System.out.println(i-- + p.getURI());
+
 				// restrict import to namespace list provided
 				if (nameSpaces.isEmpty() || nameSpaces.contains(p.getNameSpace())) {
-					if ( !p.isOntLanguageTerm()) {
+					if (!p.isOntLanguageTerm()) {
 						PropertyType prop = processProperty(ontModel, p);
-						if ( prop != null) {
+						if (prop != null) {
 							propRepo.save(prop);
-							indexedProp.add(prop);
+							// indexedProp.add(prop);
 						}
 					}
 				}
 			}
 			/*
-			 * process all ontology classes, index them and map all
-			 * properties applicable to the class 
+			 * process all ontology classes, index them and map all properties applicable to
+			 * the class
 			 */
 			Iterator<OntClass> classes = ontModel.listClasses();
-			while ( classes.hasNext()) {
+			i = Iterators.size(classes);
+			classes = ontModel.listClasses();
+			while (classes.hasNext()) {
 				OntClass c = classes.next();
+				System.out.println(i-- + c.getURI());
 				// restrict import to namespace list provided
-				if ( nameSpaces.isEmpty() || nameSpaces.contains(c.getNameSpace())) {
-					
-					if ( !c.isOntLanguageTerm()) {
+				if (nameSpaces.isEmpty() || nameSpaces.contains(c.getNameSpace())) {
+
+					if (!c.isOntLanguageTerm()) {
 						ClassType clazz = processClazz(ontModel, c, indexedProp);
-						if ( clazz != null) {
+						if (clazz != null) {
 							classRepository.save(clazz);
 						}
 					}
@@ -154,16 +201,18 @@ public class OntologyServiceImpl implements OntologyService {
 		}
 
 	}
+
 	/**
-	 * Helper method extracting all information out of the ontology model 
-	 * for each distinct ontology class
+	 * Helper method extracting all information out of the ontology model for each
+	 * distinct ontology class
+	 * 
 	 * @param model
 	 * @param clazz
 	 * @param availableProps
 	 * @return
 	 */
 	private ClassType processClazz(OntModel model, OntClass clazz, List<PropertyType> availableProps) {
-		// we do store only named ontology classes, omitting anonymous 
+		// we do store only named ontology classes, omitting anonymous
 		if (!clazz.isAnon()) {
 			ClassType index = new ClassType();
 			index.setUri(clazz.getURI());
@@ -174,12 +223,13 @@ public class OntologyServiceImpl implements OntologyService {
 			index.setComment(obtainMultilingualValues(clazz, RDFS.comment, DC.description, SKOS.definition));
 
 			// hiddenlabels
-			index.setHiddenLabel(obtainMultilingualLabels(clazz,SKOS.hiddenLabel));
-			//alternateLabels
-            index.setAlternateLabel(obtainMultilingualLabels(clazz,SKOS.altLabel));
+			index.setHiddenLabel(obtainMultilingualLabels(clazz, SKOS.hiddenLabel));
+			// alternateLabels
+			index.setAlternateLabel(obtainMultilingualLabels(clazz, SKOS.altLabel));
 
 			// search for properties (including properties of super classes
-			index.setProperties(getProperties(clazz, availableProps));
+			// index.setProperties(getProperties(clazz, availableProps));
+			index.setProperties(getProperties(clazz,model));
 			// search for parent / super classes
 			index.setAllParents(getSuperClasses(clazz));
 			index.setParents(getSuperClasses(clazz, true));
@@ -190,15 +240,17 @@ public class OntologyServiceImpl implements OntologyService {
 		}
 		return null;
 	}
+
 	/**
 	 * Get a list of all property URI's which are applicable to the provided class
+	 * 
 	 * @param clazz
 	 * @param properties
 	 * @return
 	 */
 	private Set<String> getProperties(final OntClass clazz, List<PropertyType> properties) {
 		return properties.stream()
-				// filtering 
+				// filtering
 				.filter(new Predicate<PropertyType>() {
 					@Override
 					public boolean test(PropertyType t) {
@@ -208,105 +260,131 @@ public class OntologyServiceImpl implements OntologyService {
 				})
 				// conversion from property to string
 				.map(new Function<PropertyType, String>() {
-		
+
 					@Override
 					public String apply(PropertyType t) {
-						// map - extract the URI 
+						// map - extract the URI
 						return t.getUri();
 					}
 				})
 				// collect the data
 				.collect(Collectors.toSet());
 	}
+
+	private Set<String> getProperties(final OntClass ontClass,final OntModel model){
+		Set<String> properties = new HashSet<>();
+		String className=ontClass.getURI();
+		String sparqlQuery = "PREFIX ex: <http://www.aidimme.es/FurnitureSectorOntology.owl#> PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> PREFIX owl: <http://www.w3.org/2002/07/owl#> SELECT ?property ?domain WHERE { {<"+className+"> rdfs:subClassOf* ?domain . ?property rdfs:domain ?domain .} UNION  { ?property rdfs:domain ?unionClass . ?unionClass owl:unionOf/rdf:rest*/rdf:first ?domain . <"+className+"> rdfs:subClassOf* ?domain . } }";
+		Query query = QueryFactory.create(sparqlQuery);
+        try (QueryExecution qexec = QueryExecutionFactory.create(query, model)) {
+            ResultSet results = qexec.execSelect();
+
+            // Print the results
+            while (results.hasNext()) {
+                QuerySolution solution = results.nextSolution();
+				properties.add(solution.getResource("property").toString());
+                // System.out.println("Property: " + solution.getResource("property"));
+                // System.out.println("Domain: " + solution.getResource("domain"));
+                // System.out.println("--------------------------");
+            }
+        }
+		return properties;
+	}
+
 	/**
 	 * Detect the {@link ValueQualifier} for this property
+	 * 
 	 * @param prop
 	 * @return
 	 */
 	private ValueQualifier getValueQualifier(OntProperty prop) {
-		if ( NIMBLEOntology.isQuantityProperty(prop)) {
+		if (NIMBLEOntology.isQuantityProperty(prop)) {
 			return ValueQualifier.QUANTITY;
 		}
-		if ( NIMBLEOntology.isCodeProperty(prop)) {
+		if (NIMBLEOntology.isCodeProperty(prop)) {
 			return ValueQualifier.TEXT;
 		}
-		if ( NIMBLEOntology.isFileProperty(prop)) {
+		if (NIMBLEOntology.isFileProperty(prop)) {
 			return ValueQualifier.FILE;
 		}
 
 		return fromRange(prop.getRange());
 	}
+
 	private ValueQualifier fromRange(OntResource range) {
-		if ( range != null && !range.isAnon() ) {
+		if (range != null && !range.isAnon()) {
 			if (range.getNameSpace().equals(XSD.NS)) {
 				return fromXSDLocalName(range.getLocalName());
-			}
-			else if ( NIMBLEOntology.isUnitType(range)) {
+			} else if (NIMBLEOntology.isUnitType(range)) {
 				return ValueQualifier.QUANTITY;
-			}
-			else if ( NIMBLEOntology.isCodeType(range)) {
+			} else if (NIMBLEOntology.isCodeType(range)) {
 				return ValueQualifier.TEXT;
 			}
 		}
 		return null;
 	}
+
 	private String getRange(OntProperty prop) {
 		OntResource range = prop.getRange();
-		if ( range != null && !range.isAnon() ) {
+		if (range != null && !range.isAnon()) {
 			return range.getURI();
 		}
 		return null;
 	}
+
 	/**
 	 * retrieve {@link ValueQualifier} from {@link XSD} localNames
+	 * 
 	 * @param localName {@link XSD} qualifiers like <i>float</i>, <i>double</i> etc.
 	 * @return qualifier or {@link ValueQualifier#STRING} by default
 	 */
 	private ValueQualifier fromXSDLocalName(String localName) {
-        switch (localName) {
-        case "float":
-        case "double":
-        case "decimal":
-        case "int":
-        	return ValueQualifier.NUMBER;
-        case "boolean":
-        	return ValueQualifier.BOOLEAN;
-        case "string":
-        case "normalizedString":
-        default:
-        	return ValueQualifier.STRING;
-        }
+		switch (localName) {
+		case "float":
+		case "double":
+		case "decimal":
+		case "int":
+			return ValueQualifier.NUMBER;
+		case "boolean":
+			return ValueQualifier.BOOLEAN;
+		case "string":
+		case "normalizedString":
+		default:
+			return ValueQualifier.STRING;
+		}
 
 	}
 
 	/**
 	 * Helper method to obtain all necessary information for indexing a property
+	 * 
 	 * @param model
 	 * @param prop
 	 * @return
 	 */
-    private PropertyType processProperty(OntModel model, OntProperty prop) {
-    	// find the existing property or create a new one
-        PropertyType index = propRepo.findById(prop.getURI()).orElse(new PropertyType());
-        index.setUri(prop.getURI());
-        //check if the property should be hidden from the UI
-        index.setLocalName(prop.getLocalName());
-        index.setNameSpace(prop.getNameSpace());
-        index.setRange(getRange(prop));
-        // check the visible property, defaults to true
-        index.setVisible(NIMBLEOntology.isVisible(prop, true));
-        // check the required property, defaults to false
-		index.setRequired(NIMBLEOntology.isRequired(prop,false));
+	private PropertyType processProperty(OntModel model, OntProperty prop) {
+		// find the existing property or create a new one
+//        PropertyType index = propRepo.findById(prop.getURI()).orElse(new PropertyType());
+		PropertyType index = new PropertyType();
+		index.setUri(prop.getURI());
+		// check if the property should be hidden from the UI
+		index.setLocalName(prop.getLocalName());
+		index.setNameSpace(prop.getNameSpace());
+		index.setRange(getRange(prop));
+		// check the visible property, defaults to true
+		index.setVisible(NIMBLEOntology.isVisible(prop, true));
+		// check the required property, defaults to false
+		index.setRequired(NIMBLEOntology.isRequired(prop, false));
 
 		// check for the value qualifier, might be null
 		ValueQualifier valueQualifier = getValueQualifier(prop);
 		// QUANTITY and TEXT may have additional information
-		if ( valueQualifier != null ) {
-			switch ( valueQualifier) {
+		if (valueQualifier != null) {
+			switch (valueQualifier) {
 			case QUANTITY:
 				index.setValueQualifier(ValueQualifier.QUANTITY);
-				// when quantity search for unit properties, store them in the codeValues 
-				
+				// when quantity search for unit properties, store them in the codeValues
+
 				processCodedTypes(index, ValueQualifier.QUANTITY, prop);
 //				Set<String> units = collectAllowedValues(prop, unitProperties(model));
 //				// store result as units
@@ -327,165 +405,186 @@ public class OntologyServiceImpl implements OntologyService {
 			}
 		}
 
-        // try to find labels by searching rdfs:label and skos:prefLabel
-        index.setLabel(obtainMultilingualValues(prop, RDFS.label, SKOS.prefLabel));
-        // hiddenlabels
-        index.setHiddenLabel(obtainMultilingualLabels(prop,SKOS.hiddenLabel));
-        // alternateLabels
-        index.setAlternateLabel(obtainMultilingualLabels(prop,SKOS.altLabel));
+		// try to find labels by searching rdfs:label and skos:prefLabel
+		index.setLabel(obtainMultilingualValues(prop, RDFS.label, SKOS.prefLabel));
+		// hiddenlabels
+		index.setHiddenLabel(obtainMultilingualLabels(prop, SKOS.hiddenLabel));
+		// alternateLabels
+		index.setAlternateLabel(obtainMultilingualLabels(prop, SKOS.altLabel));
 
-        // try to find labels by searching rdfs:comment and skos:definition
-        index.setComment(obtainMultilingualValues(prop, RDFS.comment, SKOS.definition));
-        if (index.getLabel() != null) {
-            for (String label : index.getLabel().values()) {
-                index.addItemFieldName(ItemType.dynamicFieldPart(label));
-            }
-        }
+		// try to find labels by searching rdfs:comment and skos:definition
+		index.setComment(obtainMultilingualValues(prop, RDFS.comment, SKOS.definition));
+		if (index.getLabel() != null) {
+			for (String label : index.getLabel().values()) {
+				index.addItemFieldName(ItemType.dynamicFieldPart(label));
+			}
+		}
 
-        // add the local name
-        index.addItemFieldName(prop.getLocalName());
-        // add the uri
-        index.addItemFieldName(ItemType.dynamicFieldPart(prop.getURI()));
-
+		// add the local name
+		index.addItemFieldName(prop.getLocalName());
+		// add the uri
+		index.addItemFieldName(ItemType.dynamicFieldPart(prop.getURI()));
 //		index.setLabels(processPropertyLabel(prop));
-        prop.listDomain();
-        if (prop.getDomain() != null && prop.getDomain().isClass()) {
-            Set<String> usage = getUsage(model, prop.getDomain().asClass());
-            
-            index.getProduct().addAll(usage);
-        }
-        //
-        Resource rdfType = prop.getRDFType();
-        if (rdfType != null) {
-            index.setPropertyType(rdfType.getLocalName());
-        }
-        return index;
-    }
-    /**
-     * 
-     * @param pt
-     * @param qualifier
-     * @param resource
-     * @return
-     */
-    private void processCodedTypes(PropertyType pt, ValueQualifier qualifier, OntProperty resource) {
-    	// process all relevant nimble statements
-    	Set<String> codeSet = new HashSet<String>();
-    	// preset the codeSet with any existing
-    	codeSet.addAll(pt.getCodeList());
-    	// 
-    	String codeListUri = null;
-    	
-    	Iterator<Statement> nimbleIter = NIMBLEOntology.listNimbleStatements(resource);
-    	while ( nimbleIter.hasNext() ) {
-    		Statement stmt = nimbleIter.next();
-    		if ( stmt.getObject().isLiteral()) {
-    			// keep the literal as a possbile code
-    			codeSet.add(stmt.getObject().asLiteral().getString());
-    		}
-    		else if ( stmt.getObject().isResource()) {
-    			OntResource nRes = stmt.getObject().as(OntResource.class);
-    			// in case it is a list 
-    			if ( NIMBLEOntology.isListType(nRes)) {
-    				// keep the uri of the list id ... check for the nimble:id element
-    				codeListUri = NIMBLEOntology.listId(nRes, nRes.getURI());
-    				// collect the codes from the list
-    				codeSet.addAll(processCodedList(nRes));
-    			}
-    			else {
-    				// process the coded type along the the property as list identifier
-    				// thus, keep the property uri as list id
-    				codeListUri = resource.getURI();
-    				codeSet.add(processCodedItem(resource, nRes));
-    			}
-    		}
-    	}
-    	// store the codelist 
-    	pt.getCodeList().addAll(codeSet);
-    	// store the list uri - helpful to obtain the list of codes
-    	pt.setCodeListId(codeListUri);
-    }
+		prop.listDomain();
+		if (prop.getDomain() != null && prop.getDomain().isClass()) {
+			Set<String> usage = getUsage(model, prop.getDomain().asClass());
 
-    private Set<String> processCodedList(OntResource list) {
-    	Set<String> codes = new HashSet<String>();
-    	Iterator<Statement> iter = NIMBLEOntology.listNimbleStatements(list);
-    	while (iter.hasNext()) {
-    		//
-    		Statement stmt = iter.next();
-    		if ( stmt.getObject().isLiteral()) {
-    			// keep the literal as a possbile code
-    			codes.add(stmt.getObject().asLiteral().getString());
-    		}
-    		else if ( stmt.getObject().isResource()) {
-    			OntResource nRes = stmt.getObject().as(OntResource.class);
-    			// 
-    			codes.add(processCodedItem(list, nRes));
-    			// process the nimble-list item and add the returned code
-    		}
-    	}
-    	return codes;
-    }
-    private String processCodedItem(OntResource list, OntResource item) {
-    	
-    	CodedType codedType = codedRepository.findById(item.getURI()).orElse(new CodedType());
-    	codedType.setUri(item.getURI());
-    	codedType.setNameSpace(item.getNameSpace());
-    	codedType.setLocalName(item.getLocalName());
-    	// 
-    	// process all the labels
-    	processLabels(codedType, item);
-    	// check for the list id and the value
-    	codedType.setListId(NIMBLEOntology.listId(list, list.getURI()));
-    	// find the nimble:hasCode (use localName as default)
-    	codedType.setCode(NIMBLEOntology.hasCode(item, item.getLocalName()));
-    	// store the coded item
-    	codedRepository.save(codedType);
-    	// return the code
-    	return codedType.getCode();
-    }
-    /**
-     * helper method processing all the labels (preferred, alternate, hidden) including description & comments
-     * @param concept
-     * @param resource
-     */
-    private void processLabels(Concept concept, OntResource resource) {
-    	concept.setLabel(obtainMultilingualValues(resource, RDFS.label, SKOS.prefLabel));
-    	concept.setAlternateLabel(obtainMultilingualLabels(resource, SKOS.altLabel));
-    	concept.setHiddenLabel(obtainMultilingualLabels(resource, SKOS.hiddenLabel));
-    	concept.setDescription(obtainMultilingualValues(resource, SKOS.definition));
-    	concept.setComment(obtainMultilingualValues(resource, RDFS.comment, SKOS.note));
-    }
+			index.getProduct().addAll(usage);
+		}
+		
+		List<String> types_=new ArrayList<>();
+		StmtIterator types = prop.listProperties();
+		// System.out.println("Explicit RDF Types for property: " + prop.getURI());
+		while (types.hasNext()) {
+			Statement stmt = types.nextStatement();
+			if(stmt.getPredicate().toString().equals("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")){
+				types_.add(stmt.getResource().getLocalName());
+			}
+		}
+		// System.out.println(String.join(",", types_));
+
+		// Resource rdfType = prop.getRDFType();
+		// if (rdfType != null) {
+		// 	index.setPropertyType(rdfType.getLocalName());
+		// }
+		if(types_.size()>1){
+			index.setPropertyType(types_.get(1));
+		}else{
+			index.setPropertyType(types_.get(0));
+		}
+		return index;
+	}
+
+	/**
+	 * 
+	 * @param pt
+	 * @param qualifier
+	 * @param resource
+	 * @return
+	 */
+	private void processCodedTypes(PropertyType pt, ValueQualifier qualifier, OntProperty resource) {
+		// process all relevant nimble statements
+		Set<String> codeSet = new HashSet<String>();
+		// preset the codeSet with any existing
+		codeSet.addAll(pt.getCodeList());
+		//
+		String codeListUri = null;
+
+		Iterator<Statement> nimbleIter = NIMBLEOntology.listNimbleStatements(resource);
+		while (nimbleIter.hasNext()) {
+			Statement stmt = nimbleIter.next();
+			if (stmt.getObject().isLiteral()) {
+				// keep the literal as a possbile code
+				codeSet.add(stmt.getObject().asLiteral().getString());
+			} else if (stmt.getObject().isResource()) {
+				OntResource nRes = stmt.getObject().as(OntResource.class);
+				// in case it is a list
+				if (NIMBLEOntology.isListType(nRes)) {
+					// keep the uri of the list id ... check for the nimble:id element
+					codeListUri = NIMBLEOntology.listId(nRes, nRes.getURI());
+					// collect the codes from the list
+					codeSet.addAll(processCodedList(nRes));
+				} else {
+					// process the coded type along the the property as list identifier
+					// thus, keep the property uri as list id
+					codeListUri = resource.getURI();
+					codeSet.add(processCodedItem(resource, nRes));
+				}
+			}
+		}
+		// store the codelist
+		pt.getCodeList().addAll(codeSet);
+		// store the list uri - helpful to obtain the list of codes
+		pt.setCodeListId(codeListUri);
+	}
+
+	private Set<String> processCodedList(OntResource list) {
+		Set<String> codes = new HashSet<String>();
+		Iterator<Statement> iter = NIMBLEOntology.listNimbleStatements(list);
+		while (iter.hasNext()) {
+			//
+			Statement stmt = iter.next();
+			if (stmt.getObject().isLiteral()) {
+				// keep the literal as a possbile code
+				codes.add(stmt.getObject().asLiteral().getString());
+			} else if (stmt.getObject().isResource()) {
+				OntResource nRes = stmt.getObject().as(OntResource.class);
+				//
+				codes.add(processCodedItem(list, nRes));
+				// process the nimble-list item and add the returned code
+			}
+		}
+		return codes;
+	}
+
+	private String processCodedItem(OntResource list, OntResource item) {
+
+		CodedType codedType = codedRepository.findById(item.getURI()).orElse(new CodedType());
+		codedType.setUri(item.getURI());
+		codedType.setNameSpace(item.getNameSpace());
+		codedType.setLocalName(item.getLocalName());
+		//
+		// process all the labels
+		processLabels(codedType, item);
+		// check for the list id and the value
+		codedType.setListId(NIMBLEOntology.listId(list, list.getURI()));
+		// find the nimble:hasCode (use localName as default)
+		codedType.setCode(NIMBLEOntology.hasCode(item, item.getLocalName()));
+		// store the coded item
+		codedRepository.save(codedType);
+		// return the code
+		return codedType.getCode();
+	}
+
+	/**
+	 * helper method processing all the labels (preferred, alternate, hidden)
+	 * including description & comments
+	 * 
+	 * @param concept
+	 * @param resource
+	 */
+	private void processLabels(Concept concept, OntResource resource) {
+		concept.setLabel(obtainMultilingualValues(resource, RDFS.label, SKOS.prefLabel));
+		concept.setAlternateLabel(obtainMultilingualLabels(resource, SKOS.altLabel));
+		concept.setHiddenLabel(obtainMultilingualLabels(resource, SKOS.hiddenLabel));
+		concept.setDescription(obtainMultilingualValues(resource, SKOS.definition));
+		concept.setComment(obtainMultilingualValues(resource, RDFS.comment, SKOS.note));
+	}
+
 	/**
 	 * Helper method to extract multilingual labels
+	 * 
 	 * @param prop
 	 * @param properties
 	 * @return
 	 */
-	private Map<String, String> obtainMultilingualValues(OntResource prop, Property ... properties ) {
-		Map<String,String> languageMap = new HashMap<>();
+	private Map<String, String> obtainMultilingualValues(OntResource prop, Property... properties) {
+		Map<String, String> languageMap = new HashMap<>();
 		for (Property property : properties) {
 			NodeIterator nIter = prop.listPropertyValues(property);
-			while ( nIter.hasNext()) {
+			while (nIter.hasNext()) {
 				RDFNode node = nIter.next();
-				if ( node.isLiteral()) {
+				if (node.isLiteral()) {
 					String lang = node.asLiteral().getLanguage();
-					if (! languageMap.containsKey(lang)) {
+					if (!languageMap.containsKey(lang)) {
 						languageMap.put(lang, node.asLiteral().getString());
 					}
 				}
 			}
 		}
 		return languageMap;
-		
+
 	}
 
 	/**
 	 * Helper method to extract multilingual hidden and alternate labels
+	 * 
 	 * @param prop
 	 * @param properties
 	 * @return
 	 */
-	private Map<String, Collection<String>> obtainMultilingualLabels(OntResource prop, org.apache.jena.rdf.model.Property... properties) {
+	private Map<String, Collection<String>> obtainMultilingualLabels(OntResource prop,
+			org.apache.jena.rdf.model.Property... properties) {
 
 		Map<String, Collection<String>> languageMap = new HashMap<String, Collection<String>>();
 		for (Property property : properties) {
@@ -509,19 +608,21 @@ public class OntologyServiceImpl implements OntologyService {
 		return languageMap;
 
 	}
+
+
 	/**
 	 * Find the classes denoted by rdfs:domain
+	 * 
 	 * @param model
 	 * @param
 	 * @return
 	 */
 	private Set<String> getUsage(OntModel model, OntClass ontClass) {
-		
 		Set<String> classes = new HashSet<>();
-		if ( ontClass.isUnionClass()) {
+		if (ontClass.isUnionClass()) {
 			UnionClass uc = ontClass.asUnionClass();
 			RDFList list = uc.getOperands();
-			for ( int i = 0; i < list.size(); i++) {
+			for (int i = 0; i < list.size(); i++) {
 				RDFNode node = list.get(i);
 				OntClass cls = model.getOntClass(node.asResource().getURI());
 				if (!cls.isAnon()) {
@@ -530,30 +631,32 @@ public class OntologyServiceImpl implements OntologyService {
 //					classes.addAll(getSuperClasses(cls));
 				}
 			}
-		}
-		else {
+		} else {
 			if (ontClass.isResource() && !ontClass.isAnon()) {
 				classes.add(ontClass.getURI());
 				classes.addAll(getSubClasses(ontClass));
 			}
 		}
-		
+
 		return classes;
 	}
+
 	/**
 	 * Extract all superclasses of a given class
+	 * 
 	 * @param cls
 	 * @return
 	 */
 	private Set<String> getSuperClasses(OntClass cls) {
 		return getSuperClasses(cls, false);
 	}
+
 	private Set<String> getSuperClasses(OntClass cls, boolean direct) {
 		Set<String> sup = new HashSet<>();
 		Iterator<OntClass> iter = cls.listSuperClasses(direct);
 		while (iter.hasNext()) {
 			OntClass superClass = iter.next();
-			if (! superClass.isAnon()) {
+			if (!superClass.isAnon()) {
 //				if (!superClass.getNameSpace().equals(RDFS.uri))
 				// exclude rdfs, rdf, owl
 				if (!superClass.isOntLanguageTerm()) {
@@ -566,28 +669,31 @@ public class OntologyServiceImpl implements OntologyService {
 
 	@SuppressWarnings("unused")
 	private Set<String> getDomain(OntProperty prop) {
-		if ( prop.getDomain() == null) {
+		if (prop.getDomain() == null) {
 			return null;
 		}
 		Set<String> domains = new HashSet<>();
 		ExtendedIterator<? extends OntResource> iter = prop.listDomain();
-		while ( iter.hasNext() ) {
+		while (iter.hasNext()) {
 			OntResource r = iter.next();
-			if ( ! r.isAnon()) {
+			if (!r.isAnon()) {
 				domains.add(r.getURI());
 			}
 		}
 		return domains;
-		
+
 	}
+
 	/**
 	 * Helper method to identify all child classes
+	 * 
 	 * @param cls
 	 * @return
 	 */
 	private Set<String> getSubClasses(OntClass cls) {
 		return getSubClasses(cls, false);
 	}
+
 	private Set<String> getSubClasses(OntClass cls, boolean direct) {
 		Set<String> sub = new HashSet<>();
 		Iterator<OntClass> iter = cls.listSubClasses(direct);
