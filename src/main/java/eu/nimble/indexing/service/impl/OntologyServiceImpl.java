@@ -364,8 +364,8 @@ public class OntologyServiceImpl implements OntologyService {
 	 */
 	private PropertyType processProperty(OntModel model, OntProperty prop) {
 		// find the existing property or create a new one
-//        PropertyType index = propRepo.findById(prop.getURI()).orElse(new PropertyType());
-		PropertyType index = new PropertyType();
+       PropertyType index = propRepo.findById(prop.getURI()).orElse(new PropertyType());
+		// PropertyType index = new PropertyType();
 		index.setUri(prop.getURI());
 		// check if the property should be hidden from the UI
 		index.setLocalName(prop.getLocalName());
