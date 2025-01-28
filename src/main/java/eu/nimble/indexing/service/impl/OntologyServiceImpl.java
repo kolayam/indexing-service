@@ -434,24 +434,30 @@ public class OntologyServiceImpl implements OntologyService {
 		
 		List<String> types_=new ArrayList<>();
 		StmtIterator types = prop.listProperties();
+		List<String> noStrings = new ArrayList<>();
+		noStrings.add("Resource");
+		noStrings.add("Property");
 		// System.out.println("Explicit RDF Types for property: " + prop.getURI());
 		while (types.hasNext()) {
 			Statement stmt = types.nextStatement();
-			if(stmt.getPredicate().toString().equals("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")){
+			if(stmt.getPredicate().toString().equals("http://www.w3.org/1999/02/22-rdf-syntax-ns#type") && !noStrings.contains(stmt.getResource().getLocalName())){
 				types_.add(stmt.getResource().getLocalName());
 			}
 		}
+
+		if(types_.size()>1){
+			index.setPropertyType(types_.get(1));
+		}else{
+			index.setPropertyType(types_.get(0));
+		}
+
 		// System.out.println(String.join(",", types_));
 
 		// Resource rdfType = prop.getRDFType();
 		// if (rdfType != null) {
 		// 	index.setPropertyType(rdfType.getLocalName());
 		// }
-		if(types_.size()>1){
-			index.setPropertyType(types_.get(1));
-		}else{
-			index.setPropertyType(types_.get(0));
-		}
+
 		return index;
 	}
 
