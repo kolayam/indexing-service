@@ -2,8 +2,8 @@ from rdflib import XSD, Graph, RDF, RDFS, OWL, URIRef, Literal, Namespace
 from rdflib.namespace import split_uri
 import pysolr
 import rdflib
-# solr_url = 'http://159.65.211.184:8983/solr/'
-solr_url = 'http://localhost:8983/solr/'
+solr_url = 'http://159.65.211.184:8983/solr/'
+# solr_url = 'http://localhost:8983/solr/'
 solr_prop = pysolr.Solr(solr_url+"props")
 solr_class = pysolr.Solr(solr_url+"class")
 
@@ -230,114 +230,63 @@ g.bind("rdfs", RDFS)
 g.bind("xsd", XSD)
 g.parse(owl_file, format="xml")  # Change format to "turtle" if your file is in Turtle format
 
-i=0
-# Extract Classes
-print("Classes:")
-for s in g.subjects(RDF.type, OWL.Class):
-    i+=1
-    if isinstance(s, rdflib.term.URIRef) and i>=5969:  # If the class has a URI
-        label = g.value(s, RDFS.label)  # Get the label of the class
-        print(f"{i} {s}")
-        document = {
-            "id": str(s),
-            # "label": str(label) if isinstance(label, Literal) else None,
-            # "used_in": subclasses,
-            "localName" : str(s).split("#")[1],
-            "nameSpace" : str(s).split("#")[0] + "#",
-            "doctype": "class",
-            "parents": get_super_classes(s,True),
-            "allParents" : get_super_classes(s),
-            "allChildren" : get_sub_classes(s),
-            "children":get_sub_classes(s, True),
-            # "range" : g.value(s, RDFS.range),
-            # "isVisible" : True,
-            # "isRequired" : False,
-            # "label" : g.value(s, RDFS.label),
-            # "comment" : g.value(s,RDFS.comment),
-            # "propType":propType.split("#")[1],
-            # "valueQualifier": valueQualifier,
-            # "isFacet": True,
-            # "type": "parent",
-            # "parent": str(parent) if isinstance(parent, URIRef) else None,
-            # "range": str(parent) if isinstance(parent, URIRef) else None,
-        }
-    
-
-        # Generate dynamic fields for this class
-        dynamic_fields = create_dynamic_fields(None, s)
-        # print(f"dynamic_fields {dynamic_fields}")
-
-        document.update(dynamic_fields)
-        document.update({
-            "properties": list(get_properties(str(s),g))
-        })
-        # print(f"{list(get_properties(str(s),g))}")
-        solr_class.add(document)
-        solr_class.commit()
-# Extract SubClass Relationships
-# print("\nSubClass Relationships:")
-# for s, o in g.subject_objects(RDFS.subClassOf):
-    # print(f"SubClass: {s}, Parent Class: {o}")
 
 ontology = NIMBLEOntology(g)
 data = []
 # Extract Object Properties
 # print("\nObject Properties:")
-# i = 0
-# for s in g.subjects(RDF.type, OWL.DatatypeProperty):
-#     i += 1
-#     print(f"{i} {s}")
-#     # print(f"Subclasses of {check_property(g,s,NIMBLE.QuantityProperty, NIMBLE.QuantityProperty)}")
-#     # print(f"{s}is quatity{ontology.get_value_qualifier(URIRef(s),g)}")
-#     valueQualifier = ontology.get_value_qualifier(URIRef(s),g)
-#     # namespace, localname = get_namespace_and_localname(str(s)) 
-#     label = g.value(s, RDFS.label)
-#     domain = g.value(s, RDFS.domain)
-#     # localName = str(s).replace(RDF._NS,"")
-#     # nameSpace = RDF._NS
-#     range = g.value(s, RDFS.range)
-#     visible = g.value(s,NIMBLE.isVisible,default= "True")
-#     required = g.value(s,NIMBLE.isRequired,default="True")
-#     label = g.value(s, RDFS.label)
-#     comment = g.value(s,RDFS.comment)
-#     subclasses=[]
-#     propType = ""
-#     if len(get_explicit_rdf_types(s))>1:
-#         propType = get_explicit_rdf_types(s)[1] 
-#     else:
-#         propType = get_explicit_rdf_types(s)[0]
-#     # print(f"Subclasses of {is_valid_uri(domain)}")
-#     if is_valid_uri(domain):
-#         subclasses = [str(sub) for sub in g.subjects(RDFS.subClassOf, URIRef(domain))]
-#         # print(f"Subclasses of {domain}: {subclasses}")
-#     # print(f"Property URI: {s}, preditate{g.value(s,NIMBLE.isVisible)} , Label: {label} is domain class{is_class(domain)}")
-#     document = {
-#         "id": str(s),
-#         # "label": str(label) if isinstance(label, Literal) else None,
-#         "used_in": subclasses,
-#         "localName" : str(s).split("#")[1],
-#         "nameSpace" : str(s).split("#")[0] + "#",
-#         "range" : g.value(s, RDFS.range),
-#         "isVisible" : True,
-#         "isRequired" : False,
-#         # "label" : g.value(s, RDFS.label),
-#         # "comment" : g.value(s,RDFS.comment),
-#         "propType":propType.split("#")[1],
-#         "valueQualifier": valueQualifier,
-#         "isFacet": True,
-#         # "type": "parent",
-#         # "parent": str(parent) if isinstance(parent, URIRef) else None,
-#         # "range": str(parent) if isinstance(parent, URIRef) else None,
-#     }
+i = 0
+for s in g.subjects(RDF.type, OWL.DatatypeProperty):
+    i += 1
+    print(f"{i} {s}")
+    # print(f"Subclasses of {check_property(g,s,NIMBLE.QuantityProperty, NIMBLE.QuantityProperty)}")
+    # print(f"{s}is quatity{ontology.get_value_qualifier(URIRef(s),g)}")
+    valueQualifier = ontology.get_value_qualifier(URIRef(s),g)
+    # namespace, localname = get_namespace_and_localname(str(s)) 
+    label = g.value(s, RDFS.label)
+    domain = g.value(s, RDFS.domain)
+    # localName = str(s).replace(RDF._NS,"")
+    # nameSpace = RDF._NS
+    range = g.value(s, RDFS.range)
+    visible = g.value(s,NIMBLE.isVisible,default= "True")
+    required = g.value(s,NIMBLE.isRequired,default="True")
+    label = g.value(s, RDFS.label)
+    comment = g.value(s,RDFS.comment)
+    subclasses=[]
+    propType = ""
+    if len(get_explicit_rdf_types(s))>1:
+        propType = get_explicit_rdf_types(s)[1] 
+    else:
+        propType = get_explicit_rdf_types(s)[0]
+    # print(f"Subclasses of {is_valid_uri(domain)}")
+    if is_valid_uri(domain):
+        subclasses = [str(sub) for sub in g.subjects(RDFS.subClassOf, URIRef(domain))]
+        # print(f"Subclasses of {domain}: {subclasses}")
+    # print(f"Property URI: {s}, preditate{g.value(s,NIMBLE.isVisible)} , Label: {label} is domain class{is_class(domain)}")
+    document = {
+        "id": str(s),
+        # "label": str(label) if isinstance(label, Literal) else None,
+        "used_in": subclasses,
+        "localName" : str(s).split("#")[1],
+        "nameSpace" : str(s).split("#")[0] + "#",
+        "range" : g.value(s, RDFS.range),
+        "isVisible" : visible,
+        "isRequired" : required,
+        # "label" : g.value(s, RDFS.label),
+        # "comment" : g.value(s,RDFS.comment),
+        "propType":propType.split("#")[1],
+        "valueQualifier": valueQualifier,
+        "isFacet": True,
+    }
     
 
-#     # Generate dynamic fields for this class
-#     dynamic_fields = create_dynamic_fields(None, s)
-#     # print(f"dynamic_fields {dynamic_fields}")
+    # Generate dynamic fields for this class
+    dynamic_fields = create_dynamic_fields(None, s)
+    # print(f"dynamic_fields {dynamic_fields}")
 
-#     document.update(dynamic_fields)
-#     solr_prop.add(document)
-#     solr_prop.commit()
+    document.update(dynamic_fields)
+    solr_prop.add(document)
+    solr_prop.commit()
 
 # Extract Functional Properties
 print("\nFunctional Properties:")
