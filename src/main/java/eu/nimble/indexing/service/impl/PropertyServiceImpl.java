@@ -67,6 +67,7 @@ public class PropertyServiceImpl extends SolrServiceImpl<PropertyType> implement
 		logger.info("classTypes: " + String.join("", classTypes));
 		try {
 			List<PropertyType> result = propRepo.findByProductIn(classTypes);
+			logger.info(String.join(",", "class Types return",String.valueOf(result.size())));
 			return new SearchResult<PropertyType>(result);
 		} catch (Exception e) {
 			throw new RuntimeException(e);
