@@ -607,9 +607,9 @@ public class IndexController {
 			return ResponseEntity.ok(prop);
 		}
 		if (classType != null && !classType.isEmpty()) {
-			System.out.println("classType:===="+classType);
+			// System.out.println("classType:===="+classType);
 			SearchResult<PropertyType> prop = propertyService.findForClasses(classType);
-			System.out.println("properteis:=======" + prop.getResult().stream().map(Concept::getUri).collect(Collectors.toList()));
+			// System.out.println("properteis:=======" + prop.getResult().stream().map(Concept::getUri).collect(Collectors.toList()));
 			return ResponseEntity.ok(prop);
 		}
 		if (idxNames != null) {
