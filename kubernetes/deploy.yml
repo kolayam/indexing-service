@@ -54,12 +54,12 @@ spec:
               memory: "1Gi"  # The minimum amount of memory requested
               cpu: "500m"      # Optional: The minimum amount of CPU requested
             limits:
-              memory: "2Gi"    # The maximum amount of memory allowed
+              memory: "1Gi"    # The maximum amount of memory allowed
               cpu: "1000m"      # Optional: The maximum amount of CPU allowed
-          volumeMounts:
-            - name: indexing-vl
-              mountPath: /var/tmp/
-      volumes:
-        - name: indexing-vl
-          persistentVolumeClaim:
-            claimName: indexing-pvc
+          # volumeMounts:
+          #   - name: indexing-vl
+          #     mountPath: /var/tmp/
+      # volumes:
+      #   - name: indexing-vl
+      #     persistentVolumeClaim:
+      #       claimName: indexing-pvc
