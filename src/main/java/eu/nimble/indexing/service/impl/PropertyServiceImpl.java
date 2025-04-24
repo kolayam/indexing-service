@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.solr.core.query.Field;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import eu.nimble.indexing.repository.PropertyRepository;
 import eu.nimble.indexing.service.PropertyService;
 import eu.nimble.service.model.solr.SearchResult;
@@ -63,8 +65,14 @@ public class PropertyServiceImpl extends SolrServiceImpl<PropertyType> implement
 	@Override
 	public SearchResult<PropertyType> findForClasses(Set<String> classTypes) {
 		logger.info("classTypes: " + String.join("", classTypes));
-		List<PropertyType> result = propRepo.findByProductIn(classTypes);
-		return new SearchResult<PropertyType>(result);
+		try {
+			List<PropertyType> result = propRepo.findByProductIn(classTypes);
+			logger.info(new ObjectMapper().writeValueAsString(result));
+			return new SearchResult<PropertyType>(result);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+
 	}
 
 }
