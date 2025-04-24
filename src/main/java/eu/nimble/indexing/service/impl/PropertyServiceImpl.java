@@ -3,6 +3,8 @@ package eu.nimble.indexing.service.impl;
 import java.util.List;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.solr.core.query.Field;
 import org.springframework.stereotype.Service;
@@ -14,8 +16,8 @@ import eu.nimble.service.model.solr.owl.IPropertyType;
 import eu.nimble.service.model.solr.owl.PropertyType;
 
 @Service
-public class PropertyServiceImpl extends SolrServiceImpl<PropertyType> implements PropertyService
-{
+public class PropertyServiceImpl extends SolrServiceImpl<PropertyType> implements PropertyService {
+	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 	@Autowired
 	private PropertyRepository propRepo;
 
@@ -57,9 +59,10 @@ public class PropertyServiceImpl extends SolrServiceImpl<PropertyType> implement
 	protected List<Field> getSelectFieldList() {
 		return IPropertyType.defaultFields();
 	}
-	
+
 	@Override
 	public SearchResult<PropertyType> findForClasses(Set<String> classTypes) {
+		logger.info("classTypes: " + String.join("", classTypes));
 		List<PropertyType> result = propRepo.findByProductIn(classTypes);
 		return new SearchResult<PropertyType>(result);
 	}
